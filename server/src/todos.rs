@@ -1,6 +1,13 @@
+use lazy_static::lazy_static;
+use regex::{Regex, RegexBuilder};
 use std::default::Default;
-use std::slice::Iter;
-use regex::RegexBuilder;
+
+lazy_static! {
+    static ref TASK_REGEX: Regex = RegexBuilder::new(r"<li>\s*(?P<description>.*?)\s*</li>")
+        .dot_matches_new_line(true)
+        .build()
+        .expect("TASK_REGEX error");
+}
 
 pub struct Todo {
     name: String,
@@ -22,6 +29,12 @@ impl Todo {
     }
 }
 
+impl<'a> AsRef<str> for Todo {
+    fn as_ref(&self) -> &str { 
+        self.name.as_ref()
+    }
+}
+
 pub struct TodoList {
     todo_list: Vec<Todo>,
 }
@@ -35,12 +48,7 @@ impl Default for TodoList {
 }
 
 pub fn parse_todo_list(text: &str) -> TodoList {
-    let r = RegexBuilder::new(r"<li>\s*(?P<description>.*?)\s*</li>")
-        .dot_matches_new_line(true)
-        .build()
-        .unwrap();
-
-    let todo_list: Vec<Todo> = r
+    let todo_list: Vec<Todo> = TASK_REGEX
         .captures_iter(text)
         .map(|c| Todo {
             name: c["description"].to_string(),
@@ -59,11 +67,19 @@ impl TodoList {
 impl<'a> IntoIterator for &'a TodoList {
     type Item = <&'a Vec<Todo> as IntoIterator>::Item;
     type IntoIter = <&'a Vec<Todo> as IntoIterator>::IntoIter;
-    fn into_iter(self) -> Self::IntoIter { (&self.todo_list).into_iter() }
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.todo_list).into_iter()
+    }
 }
 
 mod test {
-    use super::parse_todo_list;
+    use super::*;
+
+    #[test]
+    fn test_task_as_ref() {
+        let t = Todo { name: "hello".to_string(), ..Default::default() };
+        assert_eq!("hello", t.as_ref() as &str);
+    }
 
     #[test]
     fn test_parse_todo_list() -> Result<(), String> {
@@ -80,9 +96,12 @@ mod test {
         let r: Vec<&str> = l1.into_iter().map(|t| t.name.as_ref()).collect();
         assert_eq!(format!("{:?}", r), r#"["task 1", "task 2"]"#);
 
-        let joined = l1.into_iter().map(|t| t.name.as_ref()).collect::<Vec<&str>>().join(", ");
+        let joined = l1
+            .into_iter()
+            .map(|t| t.name.as_ref())
+            .collect::<Vec<&str>>()
+            .join(", ");
         assert_eq!("task 1, task 2", joined);
-        
         let tasks = vec!["task 1".to_string(), "task 2".to_string()];
 
         let mut iter = tasks.iter();
@@ -100,7 +119,6 @@ mod test {
         while let Some(task) = i.next() {
             assert_eq!(Some(&task.name), iter.next());
         }
-        
         let mut iter = tasks.iter();
         let mut j = (&l1).into_iter();
         while let Some(task) = j.next() {
