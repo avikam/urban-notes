@@ -1,6 +1,6 @@
-use std::rc::Rc;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 use base64;
 use reqwest::{header, Client, ClientBuilder, Error, Method, Request, Url};
@@ -21,9 +21,12 @@ pub struct AnydoClient {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Task {
     id: String,
     title: String,
+    category_id: String,
+    labels: Option<HashSet<String>>,
 
     #[serde(flatten)]
     extra: HashMap<String, Value>,
@@ -45,7 +48,9 @@ impl Default for Task {
     fn default() -> Self {
         Task {
             id: new_anydo_id(),
-            title: "".to_string(),
+            title: Default::default(),
+            category_id: Default::default(),
+            labels: Default::default(),
             extra: Default::default(),
         }
     }
@@ -72,17 +77,40 @@ impl Task {
         self.title = title.to_owned();
         self
     }
+
+    pub fn set_category(&mut self, category: &str) -> &mut Self {
+        self.category_id = category.to_owned();
+        self
+    }
+
+
+    pub fn add_label(&mut self, label: &str) -> &mut Self {
+        match &mut self.labels {
+            None => {
+                let mut labels = HashSet::new();
+                labels.insert(label.to_owned());
+                self.labels = Some(labels);
+            }
+            Some(labels) => {
+                labels.insert(label.to_owned());
+            }
+        }
+        self
+    }
 }
 
 impl TaskListResult {
     fn from_list(list: &mut Vec<Task>) -> TaskListResult {
         TaskListResult {
-            result_list: list.into_iter().map(|t| Rc::new(std::mem::take(t))).collect(),
+            result_list: list
+                .into_iter()
+                .map(|t| Rc::new(std::mem::take(t)))
+                .collect(),
             id_map: Default::default(),
         }
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, Rc::<Task>> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Rc<Task>> {
         self.result_list.iter()
     }
 
@@ -100,7 +128,10 @@ impl TaskListResult {
 
     fn init_id_map(&self) {
         self.id_map.replace(
-            self.result_list.iter().map(|t| (t.id.clone(), t.clone())).collect()
+            self.result_list
+                .iter()
+                .map(|t| (t.id.clone(), t.clone()))
+                .collect(),
         );
     }
 }
@@ -131,14 +162,14 @@ impl AnydoClient {
         )
         .unwrap();
 
-        let mut res = self.client
+        let mut res = self
+            .client
             .execute(Request::new(Method::GET, url))
             .await
             .map_err(|e| AnydoError::ReqwestError(e))?
             .json::<Vec<Task>>()
             .await
             .map_err(|e| AnydoError::ReqwestError(e))?;
-        
         Ok(TaskListResult::from_list(&mut res))
     }
 
@@ -180,9 +211,18 @@ mod test {
     async fn test_list_tasks() -> Result<(), AnydoError> {
         let client = c();
         let anydo_tasks = client.list_tasks(false, false).await?;
-        let titles: Vec<&str> = anydo_tasks.iter().map(|t| t.title.as_ref()).collect();
+        println!("{:?}\n", anydo_tasks.result_list);
 
-        println!("tasks = {}", titles.join("\n"));
+        let titles: Vec<&str> = anydo_tasks.iter().map(|t| t.title.as_ref()).collect();
+        println!("{}\n", titles.join("\n"));
+        
+        let lables: Vec<String> = (&anydo_tasks)
+            .iter()
+            .filter(|t| t.labels.is_some())
+            .map(|t| format!("{:?}", t.labels.as_ref().unwrap()))
+            .collect();
+        println!("lables = {}", lables.join("\n"));
+
         Ok(())
     }
 
@@ -190,10 +230,15 @@ mod test {
     async fn test_find_tasks() -> Result<(), AnydoError> {
         let client = c();
         let anydo_tasks = client.list_tasks(false, false).await?;
-        
         let id = anydo_tasks.result_list[3].id.as_ref();
-        assert_eq!(anydo_tasks.by_id(id), Some(anydo_tasks.result_list[3].clone()));
-        assert_eq!(anydo_tasks.by_id(id), Some(anydo_tasks.result_list[3].clone()));
+        assert_eq!(
+            anydo_tasks.by_id(id),
+            Some(anydo_tasks.result_list[3].clone())
+        );
+        assert_eq!(
+            anydo_tasks.by_id(id),
+            Some(anydo_tasks.result_list[3].clone())
+        );
 
         Ok(())
     }
@@ -202,7 +247,11 @@ mod test {
     async fn test_post_tasks() -> Result<(), AnydoError> {
         let client = c();
         let mut task = Task::new();
-        task.title = "Test Task!".to_string();
+        task.set_title("Test Task!")
+            .set_category("0lJw090p7r3WG5OZ37X1p30k")
+            .add_label("A_BeAbayusmqiKzjlff9xw==")
+            .add_label("L09XEs7V5FWpQJiN4aW0TWcG")
+            .add_label("A_BeAbayusmqiKzjlff9xw==");
 
         let res = client.post_task(&task).await?;
         println!("task = {:?}", res);
