@@ -5,13 +5,19 @@ mod anydo;
 mod sync_todos;
 mod todos;
 
+
 use rocket::form::Form;
 use rocket::response::Debug;
 use rocket::serde::json::serde_json;
 use rocket::serde::json::Json;
-use rocket::Data;
+use rocket::{State, Data, Shutdown};
+use rocket::tokio::task::spawn_blocking;
+use rocket::tokio;
+
 use serde::Deserialize;
 use std::borrow::Cow;
+use std::thread;
+use std::sync::mpsc;
 
 #[derive(Deserialize)]
 struct Note<'r> {
@@ -25,29 +31,65 @@ struct Note<'r> {
     body: Cow<'r, str>,
 }
 
-#[post("/notes", data = "<note>")]
-async fn notes(note: Json<Note<'_>>) -> String {
-    let token = std::env::var("ANYDO_TOKEN").unwrap();
-    let client = anydo::AnydoClient::new(token.as_ref());
-
-    let todo_list = todos::parse_todo_list(&note.body);
-    let res = sync_todos::sync_todos(&client, &todo_list).await;
-    match res {
-        Err(s) => {
-            println!("Error!: {}", s);
-        }
-        Ok(_) => {
-            println!("success!");
-        }
-    }
-    todo_list
-        .into_iter()
-        .map(|t| t.name())
-        .collect::<Vec<&str>>()
-        .join(", ")
+struct TodoQueue {
+    sender: mpsc::SyncSender<todos::TodoList>
 }
 
-#[launch]
-fn rocket() -> _ {
-    rocket::build().mount("/", routes![notes])
+#[post("/notes", data = "<note>")]
+async fn notes(queue: &State<TodoQueue>, note: Json<Note<'_>>) -> String {
+    let todo_list = todos::parse_todo_list(&note.body);
+    let sender = queue.sender.clone();
+
+    // TODO: Expose error
+    spawn_blocking(move || sender.send(todo_list) ).await;
+    
+    "OK".to_string()
+}
+
+#[rocket::main]
+async fn main() {
+    let (sender, receiver) = mpsc::sync_channel::<todos::TodoList>(10);
+
+    let handle = thread::spawn(move || {
+        let token = std::env::var("ANYDO_TOKEN").unwrap();
+        let client = anydo::AnydoClient::new(token.as_ref());
+
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        for todo_list in receiver.recv() {
+            println!("recived: {}", todo_list.len());
+            
+            let res = rt.block_on(
+                sync_todos::sync_todos(&client, &todo_list)
+            );
+            
+            match res {
+                Err(s) => {
+                    println!("Error!: {}", s);
+                }
+                Ok(_) => {
+                    println!("success!");
+                }
+            }
+            
+            todo_list
+                .into_iter()
+                .map(|t| t.name())
+                .collect::<Vec<&str>>()
+                .join(", ");
+        }
+    });
+
+    let result = rocket::build()
+    .manage(TodoQueue{sender: sender})
+    .mount("/", routes![notes])
+    .launch()
+    .await;
+
+    result.expect("server failed unexpectedly");
+
+    handle.join().unwrap();
 }
