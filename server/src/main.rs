@@ -52,7 +52,7 @@ async fn main() {
 
     let handle = thread::spawn(move || {
         let token = std::env::var("ANYDO_TOKEN").unwrap();
-        let client = anydo::AnydoClient::new(token.as_ref());
+        let mut client = anydo::AnydoClient::new(token.as_ref());
 
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -63,7 +63,7 @@ async fn main() {
             println!("recived: {}", todo_list.len());
             
             let res = rt.block_on(
-                sync_todos::sync_todos(&client, &todo_list)
+                sync_todos::sync_todos(&mut client, &todo_list)
             );
             
             match res {

@@ -9,34 +9,35 @@ lazy_static! {
         .expect("TASK_REGEX error");
 }
 
-pub struct Todo {
+#[derive(Eq, Hash, PartialEq, Clone)]
+pub struct TodoItem {
     name: String,
     completed: bool,
 }
 
-impl Default for Todo {
+impl Default for TodoItem {
     fn default() -> Self {
-        Todo {
+        TodoItem {
             name: "".to_string(),
             completed: false,
         }
     }
 }
 
-impl Todo {
+impl TodoItem {
     pub fn name(&self) -> &str {
         self.name.as_ref()
     }
 }
 
-impl<'a> AsRef<str> for Todo {
+impl<'a> AsRef<str> for TodoItem {
     fn as_ref(&self) -> &str { 
         self.name.as_ref()
     }
 }
 
 pub struct TodoList {
-    todo_list: Vec<Todo>,
+    todo_list: Vec<TodoItem>,
 }
 
 impl Default for TodoList {
@@ -48,9 +49,9 @@ impl Default for TodoList {
 }
 
 pub fn parse_todo_list(text: &str) -> TodoList {
-    let todo_list: Vec<Todo> = TASK_REGEX
+    let todo_list: Vec<TodoItem> = TASK_REGEX
         .captures_iter(text)
-        .map(|c| Todo {
+        .map(|c| TodoItem {
             name: c["description"].to_string(),
             ..Default::default()
         })
@@ -65,8 +66,8 @@ impl TodoList {
 }
 
 impl<'a> IntoIterator for &'a TodoList {
-    type Item = <&'a Vec<Todo> as IntoIterator>::Item;
-    type IntoIter = <&'a Vec<Todo> as IntoIterator>::IntoIter;
+    type Item = <&'a Vec<TodoItem> as IntoIterator>::Item;
+    type IntoIter = <&'a Vec<TodoItem> as IntoIterator>::IntoIter;
     fn into_iter(self) -> Self::IntoIter {
         (&self.todo_list).into_iter()
     }
@@ -77,7 +78,7 @@ mod test {
 
     #[test]
     fn test_task_as_ref() {
-        let t = Todo { name: "hello".to_string(), ..Default::default() };
+        let t = TodoItem { name: "hello".to_string(), ..Default::default() };
         assert_eq!("hello", t.as_ref() as &str);
     }
 
