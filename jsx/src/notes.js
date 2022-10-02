@@ -1,3 +1,5 @@
+const cheerio = require('cheerio');
+
 const app = Application.currentApplication()
 ObjC.import('Cocoa')
 const session = $.NSURLSession;
@@ -5,7 +7,12 @@ const shared_session = session.sharedSession;
 
 app.includeStandardAdditions = true;
 
-function extract_noets() {
+const include_list = [
+    "1-1 notes",
+    "9/26"
+]
+
+function extract_notes() {
     // use the notes app
     const notes = Application("notes");
     var collected = [];
@@ -17,7 +24,7 @@ function extract_noets() {
 
     for (var i in notes.notes) {
         var note = notes.notes[i];
-        if (note.name() != "1-1 notes") {
+        if (!include_list.includes(note.name())) {
             continue;
         }
 
@@ -26,7 +33,7 @@ function extract_noets() {
 
         collected.push(
             {
-                folder: "folder",
+                folder: "TODO: folder",
                 name: note.name(),
                 text: note.plaintext(),
                 body: note.body(),
@@ -52,9 +59,27 @@ function post_notes(note) {
     }).resume;
 }
 
-var notes = extract_noets();
-// console.log(JSON.stringify(notes[0], null, 4));
-post_notes(notes[0]);
+/**
+ * Process a note object, return a list of TODO items
+ * @param {*} note 
+ * @returns [text, text, ...]
+ */
+function process_notes(note) { 
+    const $ = cheerio.load(note.body);
+    return $('li').toArray().map(li => cheerio.text($(li)));
+}
+
+var notes = extract_notes();
+notes.forEach(note => {
+    var extended_note = {
+        ...note,
+        todos: process_notes(note)
+    }
+    console.log(JSON.stringify(extended_note, null, 4));
+    // post_notes(note);
+});
+
+// 
 // post_notes(
 //             {
 //                 folder: "folder",
