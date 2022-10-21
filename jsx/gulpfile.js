@@ -1,4 +1,6 @@
 var browserify = require('browserify');
+var babelify = require("babelify");
+
 var gulp = require('gulp');
 var source = require('vinyl-source-stream');
 var buffer = require('vinyl-buffer');
@@ -19,22 +21,28 @@ gulp.task("default", function () {
         .pipe(buffer())
         // the rest of the gulp task, as you would normally write it.
         .pipe(sourcemaps.init())
-        .pipe(babel())
+        .pipe(babel({
+            presets: ['@babel/preset-env']
+        }))
         .pipe(concat("urban_notes.jxa"))
         .pipe(sourcemaps.write("."))
         .pipe(gulp.dest("dist"));
     
     // Browserify creates it's own readable stream.
-    const entries = ['./src/notes.js'];
+    const entries = [
+        './src/main.js',
+        // './src/parse.js',
+    ];
     
     // create the Browserify instance.
     var b = browserify({
         entries: entries,
         debug: true
-    });
+    }).transform(babelify);
 
     // pipe the Browserify stream into the stream we created earlier
     // this starts our gulp pipeline.
     b.bundle().pipe(bundledStream);
+    
     return bundledStream;
 });

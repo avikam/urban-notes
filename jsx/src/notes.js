@@ -1,5 +1,3 @@
-const cheerio = require('cheerio');
-
 const app = Application.currentApplication()
 ObjC.import('Cocoa')
 const session = $.NSURLSession;
@@ -12,7 +10,7 @@ const include_list = [
     "9/26"
 ]
 
-function extract_notes() {
+export function extractNotes() {
     // use the notes app
     const notes = Application("notes");
     var collected = [];
@@ -44,7 +42,7 @@ function extract_notes() {
     return collected;
 }
 
-function post_notes(note) {
+export function postNotes(note) {
     const req =  $.NSMutableURLRequest.alloc.initWithURL($.NSURL.URLWithString('http://127.0.0.1:8000/notes'));
     
     req.HTTPMethod = "post";
@@ -58,44 +56,3 @@ function post_notes(note) {
         console.log(ObjC.unwrap($.NSString.alloc.initWithDataEncoding(data, $.NSASCIIStringEncoding)));
     }).resume;
 }
-
-/**
- * Process a note object, return a list of TODO items
- * @param {*} note 
- * @returns [text, text, ...]
- */
-function process_notes(note) { 
-    const $ = cheerio.load(note.body);
-    return $('li').toArray().map(li => cheerio.text($(li)));
-}
-
-var notes = extract_notes();
-notes.forEach(note => {
-    var extended_note = {
-        ...note,
-        todos: process_notes(note)
-    }
-    console.log(JSON.stringify(extended_note, null, 4));
-    // post_notes(note);
-});
-
-// 
-// post_notes(
-//             {
-//                 folder: "folder",
-//                 name: "note.name()",
-//                 text: "note.plaintext()",
-//                 body: "note.body()",
-//             }
-// );
-
-function run() {
-    // while (true) {
-    delay(1);
-    // }
-    // var inp = app.doShellScript(`sleep 2`);
-    // console.log(inp);
-}
-
-run();
-console.log("done");
