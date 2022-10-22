@@ -21,3 +21,12 @@ export const extractTodos = (note_body) => {
             li => cheerio.text($(li))
         );
 }
+
+export function convertNotesToTodos(notes) {
+    return notes.flatMap(note => {
+        const {body, folder, name} = note;
+        return extractTodos(body).map(todo => {
+            return {todo, folder, name}
+        })
+    });
+}

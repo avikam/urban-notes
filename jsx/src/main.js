@@ -1,21 +1,6 @@
-import { extractNotes } from "./notes";
-import { extractTodos } from "./parse";
+import { extractNotes, postNotes } from "./clients";
+import { convertNotesToTodos } from "./process";
 
-
-var notes = extractNotes();
-notes.forEach(note => {
-    var extended_note = {
-        ...note,
-        todos: extractTodos(note.body)
-    };
-
-    console.log(
-        JSON.stringify(extended_note.todos, null, 4)
-    );
-    // post_notes(note);
-});
-
-// 
 // post_notes(
 //             {
 //                 folder: "folder",
@@ -26,6 +11,15 @@ notes.forEach(note => {
 // );
 
 function run() {
+    const notes = extractNotes();
+    const todos_entries = convertNotesToTodos(notes);
+    
+    console.log(
+        JSON.stringify(todos_entries, null, 4)
+    );
+
+    postNotes(todos_entries);
+    
     // while (true) {
     delay(1);
     // }

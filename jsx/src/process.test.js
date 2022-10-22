@@ -1,4 +1,4 @@
-import { extractTodos } from "./parse"
+import { extractTodos, convertNotesToTodos } from "./process"
 
 describe('extractTodos', () => {
     test("empty string", () => {
@@ -47,5 +47,26 @@ describe('extractTodos', () => {
         <li>def</li>
         </ul>
     `)).toStrictEqual(['123', '456', 'abc', 'def']);
+    })
+});
+
+describe('convertNotesToTodos', () => {
+    test("convertNotesToTodos", () => {
+        console.log(
+            convertNotesToTodos([
+                {
+                    folder: "folder",
+                    name: "9/16",
+                    text: "text",
+                    body: "<div>#! TODO</div><ul><li>1</li><li>2</li></ul>"
+                },
+                {
+                    folder: "folder",
+                    name: "10/16",
+                    text: "text",
+                    body: "<div>#! TODO</div><ul><li>3</li><li>4</li></ul>"
+                }
+            ])
+        );
     })
 });

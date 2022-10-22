@@ -59,6 +59,11 @@ pub fn parse_todo_list(text: &str) -> TodoList {
     TodoList { todo_list }
 }
 
+pub fn todo_list_from_notes(text: &[&str] ) -> TodoList {
+    let todo_list = text.iter().map(|t| TodoItem {completed: false, name: (*t).to_owned()}).collect();
+    TodoList { todo_list }
+}
+
 impl TodoList {
     pub fn len(&self) -> usize {
         self.todo_list.len()

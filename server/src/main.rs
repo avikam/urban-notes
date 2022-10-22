@@ -25,23 +25,22 @@ struct Note<'r> {
     name: &'r str,
 
     #[serde(borrow)]
-    text: Cow<'r, str>,
-
-    #[serde(borrow)]
-    body: Cow<'r, str>,
+    todo: Cow<'r, str>,
 }
 
 struct TodoQueue {
     sender: mpsc::SyncSender<todos::TodoList>
 }
 
-#[post("/notes", data = "<note>")]
-async fn notes(queue: &State<TodoQueue>, note: Json<Note<'_>>) -> String {
-    let todo_list = todos::parse_todo_list(&note.body);
+#[post("/notes", data = "<notes>")]
+async fn notes(queue: &State<TodoQueue>, notes: Json<Vec<Note<'_>>>) -> String {
+    let x: Vec<&str> = notes.iter().map(|n| n.todo.as_ref()).collect();
+    let todo_list = todos::todo_list_from_notes(&x);
+    
     let sender = queue.sender.clone();
 
     // TODO: Expose error
-    spawn_blocking(move || sender.send(todo_list) ).await;
+    spawn_blocking(move || sender.send(todo_list) ).await.unwrap().unwrap();
     
     "OK".to_string()
 }

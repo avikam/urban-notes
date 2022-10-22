@@ -1,5 +1,6 @@
-const app = Application.currentApplication()
 ObjC.import('Cocoa')
+
+const app = Application.currentApplication()
 const session = $.NSURLSession;
 const shared_session = session.sharedSession;
 
