@@ -2,13 +2,6 @@ use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use std::default::Default;
 
-lazy_static! {
-    static ref TASK_REGEX: Regex = RegexBuilder::new(r"<li>\s*(?P<description>.*?)\s*</li>")
-        .dot_matches_new_line(true)
-        .build()
-        .expect("TASK_REGEX error");
-}
-
 #[derive(Eq, Hash, PartialEq, Clone)]
 pub struct TodoItem {
     name: String,
@@ -48,17 +41,6 @@ impl Default for TodoList {
     }
 }
 
-pub fn parse_todo_list(text: &str) -> TodoList {
-    let todo_list: Vec<TodoItem> = TASK_REGEX
-        .captures_iter(text)
-        .map(|c| TodoItem {
-            name: c["description"].to_string(),
-            ..Default::default()
-        })
-        .collect();
-    TodoList { todo_list }
-}
-
 pub fn todo_list_from_notes(text: &[&str] ) -> TodoList {
     let todo_list = text.iter().map(|t| TodoItem {completed: false, name: (*t).to_owned()}).collect();
     TodoList { todo_list }
@@ -88,16 +70,9 @@ mod test {
     }
 
     #[test]
-    fn test_parse_todo_list() -> Result<(), String> {
-        let result = parse_todo_list("<ul>\n<li>The good place </li>\n<li>Parasite </li>\n<li>Involve me more in project Metal (today is 5/5/2022)</li>\n</ul>\nwords words \n<ul><li>task 1</li><li>task 2</li></ul>");
-        assert_eq!(result.todo_list.len(), 5);
-
-        Ok(())
-    }
-
-    #[test]
     fn test_into_iterator() {
-        let l1 = parse_todo_list("<ul><li>task 1</li><li>task 2</li></ul>");
+        let todos = vec!("task 1", "task 2");
+        let l1 = todo_list_from_notes(&todos);
 
         let r: Vec<&str> = l1.into_iter().map(|t| t.name.as_ref()).collect();
         assert_eq!(format!("{:?}", r), r#"["task 1", "task 2"]"#);

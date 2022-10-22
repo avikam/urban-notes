@@ -64,7 +64,7 @@ pub async fn sync_todos(client: &mut impl PostTodoItem, todo_list: &TodoList) ->
 
 mod test {
     use super::*;
-    use crate::todos::parse_todo_list;
+    use crate::todos::todo_list_from_notes;
     use std::env;
     use tokio;
 
@@ -85,7 +85,8 @@ mod test {
     #[tokio::test]
     async fn test_sync_todos() -> Result<(), String> {
         let mut client = MockClient::new();
-        let todo_list = parse_todo_list("<ul><li>task 1</li><li>task 2</li></ul>");
+        let todos = vec!("task 1", "task2");
+        let todo_list = todo_list_from_notes(&todos);
 
         sync_todos(&mut client, &todo_list).await
     }
@@ -93,16 +94,18 @@ mod test {
     #[tokio::test]
     async fn test_list_synchronizer() -> Result<(), String> {
         let mut client = MockClient::new();
+        let todos = vec!["task 1", "task 2"];
+        let tasks = todo_list_from_notes(&todos);
 
         {
             let mut syncher = ListSynchronizer::new(&mut client);
-            syncher.sync_todos(&parse_todo_list("<ul><li>task 1</li><li>task 2</li></ul>")).await?;
+            syncher.sync_todos(&tasks).await?;
         }
         assert_eq!(client.0.len(), 2);
         
         {
             let mut syncher = ListSynchronizer::new(&mut client);
-            syncher.sync_todos(&parse_todo_list("<ul><li>task 1</li><li>task 2</li></ul>")).await?;
+            syncher.sync_todos(&tasks).await?;
         }
         assert_eq!(client.0.len(), 4);
 
@@ -111,18 +114,18 @@ mod test {
 
     #[tokio::test]
     async fn test_list_synchronizer2() -> Result<(), String> {
-        struct TestCase { tasks: &'static str, expected: usize };
+        struct TestCase { tasks: Vec<&'static str>, expected: usize };
         let test_cases = vec![
-            TestCase { tasks: "<ul><li>task 1</li><li>task 2</li></ul>", expected: 2 },
-            TestCase { tasks: "<ul><li>task 1</li><li>task 2</li><li>task 2</li></ul>", expected: 2 },
-            TestCase { tasks: "<ul><li>task 1</li><li>task 2</li><li>task 2</li><li>task 1</li></ul>", expected: 2 },
-            TestCase { tasks: "<ul><li>task 1</li><li>task 2</li><li>task 2</li><li>task 1</li><li>task 3</li></ul>", expected: 3 },
+            TestCase { tasks: vec!["task 1", "task 2"], expected: 2 },
+            TestCase { tasks: vec!["task 1", "task 2", "task 2"], expected: 2 },
+            TestCase { tasks: vec!["task 1", "task 2", "task 2", "task 1"], expected: 2 },
+            TestCase { tasks: vec!["task 1", "task 2", "task 2", "task 1", "task 3"], expected: 3 },
         ];
 
         for t in test_cases.iter() {
             let mut client = MockClient::new();
             let mut syncher = ListSynchronizer::new(&mut client);
-            syncher.sync_todos(&parse_todo_list(t.tasks)).await?;
+            syncher.sync_todos(&&todo_list_from_notes(&t.tasks)).await?;
             assert_eq!(client.0.len(), t.expected);
         }
         
