@@ -6,40 +6,34 @@ const shared_session = session.sharedSession;
 
 app.includeStandardAdditions = true;
 
-const include_list = [
-    "1-1 notes",
-    "9/26"
-]
-
-export function extractNotes() {
+export function extractNotes(includeFolders) {
     // use the notes app
-    const notes = Application("notes");
+    const notes_app = Application("notes");
     var collected = [];
 
-    // for (var f in notes.folders) {
-    //     console.log(notes.folders[f].name());
-    //     console.log(JSON.stringify(notes.folders[f].properties()));
-    // }
+    const folders = notes_app.folders;
+    for (var fx = 0; fx < folders.length; fx++) {
+        const folder = folders[fx];
+        console.log("Inspecting folder", folder.name());
 
-    for (var i in notes.notes) {
-        var note = notes.notes[i];
-        if (!include_list.includes(note.name())) {
+        if (!includeFolders.includes(folder.name())) {
             continue;
         }
 
-        // console.log(JSON.stringify(notes.notes[i].properties()));
-        // console.log(note.body());
+        const notes = folder.notes;
+        for (var nx = 0; nx < notes.length; nx++) {
+            const note = notes[nx];
 
-        collected.push(
-            {
-                folder: "TODO: folder",
-                name: note.name(),
-                text: note.plaintext(),
-                body: note.body(),
-            }
-        )
+            collected.push(
+                {
+                    folder: folder.name(),
+                    name: note.name(),
+                    text: note.plaintext(),
+                    body: note.body(),
+                }
+            )
+        }
     }
-    
     return collected;
 }
 

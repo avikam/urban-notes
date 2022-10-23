@@ -1,17 +1,12 @@
 import { extractNotes, postNotes } from "./clients";
 import { convertNotesToTodos } from "./process";
 
-// post_notes(
-//             {
-//                 folder: "folder",
-//                 name: "note.name()",
-//                 text: "note.plaintext()",
-//                 body: "note.body()",
-//             }
-// );
+const gIncludeFolders = [
+    "Weekly goals"
+]
 
 function run() {
-    const notes = extractNotes();
+    const notes = extractNotes(gIncludeFolders);
     const todos_entries = convertNotesToTodos(notes);
     
     console.log(
@@ -19,7 +14,7 @@ function run() {
     );
 
     postNotes(todos_entries);
-    
+
     // while (true) {
     delay(1);
     // }
