@@ -1,12 +1,9 @@
+import { config } from "./config"
 import { extractNotes, postNotes } from "./clients";
 import { convertNotesToTodos } from "./process";
 
-const gIncludeFolders = [
-    "Weekly goals"
-]
-
 function run() {
-    const notes = extractNotes(gIncludeFolders);
+    const notes = extractNotes(config.includeFolders);
     const todos_entries = convertNotesToTodos(notes);
     
     console.log(
@@ -14,12 +11,6 @@ function run() {
     );
 
     postNotes(todos_entries);
-
-    // while (true) {
-    delay(1);
-    // }
-    // var inp = app.doShellScript(`sleep 2`);
-    // console.log(inp);
 }
 
 run();

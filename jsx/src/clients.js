@@ -1,3 +1,5 @@
+import { config } from "./config"
+
 ObjC.import('Cocoa')
 
 const app = Application.currentApplication()
@@ -38,7 +40,7 @@ export function extractNotes(includeFolders) {
 }
 
 export function postNotes(note) {
-    const req =  $.NSMutableURLRequest.alloc.initWithURL($.NSURL.URLWithString('http://127.0.0.1:8000/notes'));
+    const req =  $.NSMutableURLRequest.alloc.initWithURL($.NSURL.URLWithString(config.serverUrl));
     
     req.HTTPMethod = "post";
     req.HTTPContentType = "application/json;charset=utf-8";
