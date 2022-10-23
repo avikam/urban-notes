@@ -5,19 +5,14 @@ mod anydo;
 mod sync_todos;
 mod todos;
 
-
-use rocket::form::Form;
-use rocket::response::Debug;
-use rocket::serde::json::serde_json;
 use rocket::serde::json::Json;
-use rocket::{State, Data, Shutdown};
-use rocket::tokio::task::spawn_blocking;
-use rocket::tokio;
+use rocket::State;
 
 use serde::Deserialize;
 use std::borrow::Cow;
-use std::thread;
-use std::sync::mpsc;
+use tokio::sync::mpsc;
+use tokio::task::spawn_blocking;
+use tokio::signal;
 
 #[derive(Deserialize)]
 struct Note<'r> {
@@ -29,7 +24,7 @@ struct Note<'r> {
 }
 
 struct TodoQueue {
-    sender: mpsc::SyncSender<todos::TodoList>
+    sender: mpsc::Sender<todos::TodoList>
 }
 
 #[post("/notes", data = "<notes>")]
@@ -40,55 +35,65 @@ async fn notes(queue: &State<TodoQueue>, notes: Json<Vec<Note<'_>>>) -> String {
     let sender = queue.sender.clone();
 
     // TODO: Expose error
-    spawn_blocking(move || sender.send(todo_list) ).await.unwrap().unwrap();
-    
+    let spawn_result = spawn_blocking(move || {
+        sender.blocking_send(todo_list)
+    }).await.unwrap();
+
+    if let Err(send_error) = spawn_result {
+        println!("SendError: {}", send_error);
+        panic!()
+    }
+
     "OK".to_string()
 }
 
 #[rocket::main]
 async fn main() {
-    let (sender, receiver) = mpsc::sync_channel::<todos::TodoList>(10);
+    let (sender, mut receiver) = mpsc::channel::<todos::TodoList>(10);
 
-    let handle = thread::spawn(move || {
+    let handle = tokio::spawn(async move {
+        println!("started recv loop");
         let token = std::env::var("ANYDO_TOKEN").unwrap();
         let mut client = anydo::AnydoClient::new(token.as_ref());
 
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        let mut ls = sync_todos::ListSynchronizer::new(&mut client);
 
-        for todo_list in receiver.recv() {
-            println!("recived: {}", todo_list.len());
-            
-            let res = rt.block_on(
-                sync_todos::sync_todos(&mut client, &todo_list)
-            );
-            
-            match res {
-                Err(s) => {
-                    println!("Error!: {}", s);
+        loop {
+            tokio::select! {
+                Some(todo_list) = receiver.recv() =>  {
+                println!("recived: {}", todo_list.len());
+                
+                let res = ls.sync_todos(&todo_list).await;
+                match res {
+                    Err(s) => {
+                        println!("Error!: {}", s);
+                    }
+                    Ok(j) => {
+                        println!("success! inserted {} items", j);
+                    }
                 }
-                Ok(_) => {
-                    println!("success!");
+                
+                todo_list
+                    .into_iter()
+                    .map(|t| t.name())
+                    .collect::<Vec<&str>>()
+                    .join(", ");
+                },
+
+                _ = signal::ctrl_c() => {
+                    break;
                 }
             }
-            
-            todo_list
-                .into_iter()
-                .map(|t| t.name())
-                .collect::<Vec<&str>>()
-                .join(", ");
         }
+        
+        println!("recv closed");
     });
 
     let result = rocket::build()
     .manage(TodoQueue{sender: sender})
     .mount("/", routes![notes])
-    .launch()
-    .await;
+    .launch();
 
-    result.expect("server failed unexpectedly");
-
-    handle.join().unwrap();
+    result.await.expect("server failed unexpectedly");
+    handle.await.expect("recv failed unexpectedly");
 }

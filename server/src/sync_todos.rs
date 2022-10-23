@@ -42,7 +42,8 @@ impl<'a, T: PostTodoItem> ListSynchronizer<'a, T> {
         }
     }
 
-    pub async fn sync_todos(&mut self, todo_list: &TodoList) -> Result<(), String> {
+    pub async fn sync_todos(&mut self, todo_list: &TodoList) -> Result<(usize), String> {
+        let mut i = 0;
         for item in todo_list {
             if self.sent.contains(&item) {
                 continue;
@@ -50,16 +51,10 @@ impl<'a, T: PostTodoItem> ListSynchronizer<'a, T> {
 
             self.client.post_todo_item(item).await?;
             self.sent.insert(item.to_owned());
+            i += 1;
         }
-        Ok(())
+        Ok(i)
     }
-}
-
-pub async fn sync_todos(client: &mut impl PostTodoItem, todo_list: &TodoList) -> Result<(), String> {
-    for item in todo_list {
-        client.post_todo_item(item).await?;
-    }
-    Ok(())
 }
 
 mod test {
@@ -80,15 +75,6 @@ mod test {
             self.0.push(item.clone());
             Ok(())
         }
-    }
-
-    #[tokio::test]
-    async fn test_sync_todos() -> Result<(), String> {
-        let mut client = MockClient::new();
-        let todos = vec!("task 1", "task2");
-        let todo_list = todo_list_from_notes(&todos);
-
-        sync_todos(&mut client, &todo_list).await
     }
 
     #[tokio::test]

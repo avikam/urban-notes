@@ -1,5 +1,3 @@
-use lazy_static::lazy_static;
-use regex::{Regex, RegexBuilder};
 use std::default::Default;
 
 #[derive(Eq, Hash, PartialEq, Clone)]
