@@ -17,6 +17,23 @@ To run it, simply hit:
 
 `npm run clean-run`
 
+### Running periodically
+
+We want this utility to run periodically, so it will keep the Notes in sync with our server.
+The preferred way to run background agents (over crontab) is using `launchd`.
+We first write a configuration file, and place it and the built script in an accessible directory. I chose `~/Library/Scripts` for the script (without thinking too deeply about it) and `~/Library/LaunchAgents/` for the configuration. Then we execute some `launchctl` commands to bootstrap and enable the service.
+
+```
+# Copy script and launchd configuration (plist)
+cp -r dist/urban_notes.app ~/Library/Scripts/urban_notes.app
+cp com.urban_notes.agent.plist ~/Library/LaunchAgents/
+
+# Install service
+UID=$(id -u)
+sudo launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.urban_notes.agent.plist
+sudo launchctl enable gui/$UID/com.urban_notes.agent
+```
+
 ### How I built it 
 
 This code was bootstrapped thanks to the amazing wiki at the [JXA-Cookbook](https://github.com/JXA-Cookbook/JXA-Cookbook/wiki) repo.
