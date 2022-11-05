@@ -1,8 +1,8 @@
 import { config } from "./config"
-import { extractNotes, postNotes } from "./clients";
+import { extractNotes, postNotes, pushReminder } from "./clients";
 import { convertNotesToTodos } from "./process";
 
-function run() {
+function pushNotes() {
     const notes = extractNotes(config.includeFolders);
     const todos_entries = convertNotesToTodos(notes);
     
@@ -13,5 +13,24 @@ function run() {
     postNotes(todos_entries);
 }
 
-run();
+function pullReminders() {
+    // GET cursor time
+    // GET todos { thisTime }
+
+    pushReminder({
+        todo: "Planning of a new sprint",
+        folder: "Weekly goals",
+        name: "10/24"
+    });
+
+    // POST done { thisTime }
+}
+
+function main() {
+    pushNotes();
+
+    pullReminders();
+}
+
+main();
 console.log("done");

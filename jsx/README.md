@@ -42,3 +42,7 @@ This code was bootstrapped thanks to the amazing wiki at the [JXA-Cookbook](http
 Discovering the Notes API was easier with [debugging](https://developer.apple.com/library/archive/releasenotes/InterapplicationCommunication/RN-JavaScriptForAutomation/Articles/OSX10-11.html#//apple_ref/doc/uid/TP40014508-CH110-SW6) and inspecting, though it was quite predictable. 
 
 The build pipeline transpile the ES6 files using babel and browserify into a single fat JXA file. It was tested on macOS Monterey.
+
+###  Why not use something like iCloud integration?
+
+Because to the best of my search, there ar no apps, and I won't store passwords.

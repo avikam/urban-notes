@@ -30,7 +30,8 @@
   },
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
-    "jsdom": "^20.0.1"
+    "jsdom": "^20.0.1",
+    "yargs": "^17.6.0"
   },
   "engines": {
     "npm": ">=8.0.0 <9.0.0",

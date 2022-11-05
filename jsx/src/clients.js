@@ -39,14 +39,33 @@ export function extractNotes(includeFolders) {
     return collected;
 }
 
+export function pushReminder(todo) {
+    const reminders_app = Application("Reminders");
+    var new_reminder = reminders_app.Reminder({
+        name: todo.todo, 
+        body: `From: ${todo.folder} / ${todo.name}`
+    });
+    reminders_app.lists.byName("Reminders").reminders.push(new_reminder);
+}
+
 export function postNotes(note) {
-    const req =  $.NSMutableURLRequest.alloc.initWithURL($.NSURL.URLWithString(config.serverUrl));
+    return request("POST", "push?user_id=user1", note);
+}
+
+export function pullReminders(cursor) {
+    return request("GET", `pull?user_id=user1&agent_id=agent1`);
+}
+
+function request(method, path, json_body) {
+    const req =  $.NSMutableURLRequest.alloc.initWithURL($.NSURL.URLWithString(config.serverUrl + path));
     
-    req.HTTPMethod = "post";
-    req.HTTPContentType = "application/json;charset=utf-8";
-    
-    var body_string = $.NSString.alloc.initWithUTF8String(JSON.stringify(note));
-    req.HTTPBody = body_string.dataUsingEncoding($.NSUTF8StringEncoding);
+    req.HTTPMethod = method;
+
+    if (json_body) {
+        req.HTTPContentType = "application/json;charset=utf-8";
+        var body_string = $.NSString.alloc.initWithUTF8String(JSON.stringify(json_body));
+        req.HTTPBody = body_string.dataUsingEncoding($.NSUTF8StringEncoding);
+    }
 
     shared_session.dataTaskWithRequestCompletionHandler(req, (data, resp, err) => {
         console.log(resp.statusCode);

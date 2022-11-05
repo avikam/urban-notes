@@ -1,16 +1,14 @@
-use std::default::Default;
+use std::{default::Default, borrow::Borrow};
 
 #[derive(Eq, Hash, PartialEq, Clone)]
 pub struct TodoItem {
-    name: String,
-    completed: bool,
+    name: String
 }
 
 impl Default for TodoItem {
     fn default() -> Self {
         TodoItem {
             name: "".to_string(),
-            completed: false,
         }
     }
 }
@@ -39,14 +37,27 @@ impl Default for TodoList {
     }
 }
 
-pub fn todo_list_from_notes(text: &[&str] ) -> TodoList {
-    let todo_list = text.iter().map(|t| TodoItem {completed: false, name: (*t).to_owned()}).collect();
+pub fn todo_list_from_notes<'a, S: Borrow<str>>(text: &[S]) -> TodoList {
+    let todo_list = text.iter().map(|t| {
+        let tmp: &str = t.borrow();
+        TodoItem {
+            name: tmp.to_owned()
+        }}).collect();
     TodoList { todo_list }
 }
 
 impl TodoList {
     pub fn len(&self) -> usize {
         self.todo_list.len()
+    }
+
+    pub fn sorted(&self) -> Self {
+        let mut cloned = self.todo_list.clone();
+        cloned.sort_by(|a, b| a.name().partial_cmp(b.name()).unwrap());
+
+        TodoList { 
+            todo_list: cloned
+        }
     }
 }
 
@@ -65,6 +76,16 @@ mod test {
     fn test_task_as_ref() {
         let t = TodoItem { name: "hello".to_string(), ..Default::default() };
         assert_eq!("hello", t.as_ref() as &str);
+    }
+
+    #[test]
+    fn test_into_iterator_string() {
+        let todos = vec!("task 1".to_string(), "task 2".to_string());
+        let l1 = todo_list_from_notes(&todos);
+
+        let r: Vec<&str> = l1.into_iter().map(|t| t.name.as_ref()).collect();
+        assert_eq!(format!("{:?}", r), r#"["task 1", "task 2"]"#);
+
     }
 
     #[test]
