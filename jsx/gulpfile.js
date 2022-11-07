@@ -29,6 +29,7 @@ function build() {
         .pipe(babel({
             presets: ['@babel/preset-env']
         }))
+        .pipe(gulp.src('./src/_bootstrap.js'))
         .pipe(concat(COMBINED))
         .pipe(sourcemaps.write("."))
         .pipe(gulp.dest(DIST_FOLDER))

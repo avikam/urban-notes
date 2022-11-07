@@ -1,8 +1,9 @@
 import { config } from "./config"
-import { extractNotes, postNotes, pushReminder } from "./clients";
+import { extractNotes, postTodos, getTodos, waitForDataTasks, pushReminder } from "./clients";
 import { convertNotesToTodos } from "./process";
+import { parseArgv } from "./args"
 
-function pushNotes() {
+async function pushNotes(userId) {
     const notes = extractNotes(config.includeFolders);
     const todos_entries = convertNotesToTodos(notes);
     
@@ -13,24 +14,35 @@ function pushNotes() {
     postNotes(todos_entries);
 }
 
-function pullReminders() {
-    // GET cursor time
-    // GET todos { thisTime }
+async function pullReminders(userId, agentId) {
+    console.log("pull reminders");
+    const todos = await getTodos("user1", "agentId");
+    console.log("get todos response", todos);
 
-    pushReminder({
-        todo: "Planning of a new sprint",
+    todos
+    .map(todo => { return {
+        todo,
         folder: "Weekly goals",
         name: "10/24"
-    });
+    }})
+    .forEach(pushReminder);
 
-    // POST done { thisTime }
+    return true;
 }
 
-function main() {
-    pushNotes();
+globalThis.runMain = (argv) => {
+    const res = parseArgv(argv);
+    if (res === undefined) {
+        throw "Usage: [push | pull]";
+    }
 
-    pullReminders();
+    const command_map = {
+        push: pushNotes,
+        pull: pullReminders
+    };
+
+    const result_promise = command_map[res.command]();
+    result_promise.then(console.log);
+
+    waitForDataTasks();
 }
-
-main();
-console.log("done");
