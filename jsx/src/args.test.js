@@ -2,7 +2,7 @@ import { parseArgv } from "./args"
 
 describe('extractTodos', () => {
     test("sanity commands", () => {
-        expect(parseArgv([])).toStrictEqual(undefined);
+        expect(parseArgv([])).toStrictEqual({"args": {}, "command": "_default"});
         expect(parseArgv(['pusx'])).toStrictEqual(undefined);
         expect(parseArgv(['pul'])).toStrictEqual(undefined);
     })

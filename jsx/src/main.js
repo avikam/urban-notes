@@ -4,6 +4,7 @@ import { convertNotesToTodos } from "./process";
 import { parseArgv } from "./args"
 
 async function pushNotes(userId) {
+    console.log("push notes");
     const notes = extractNotes(config.includeFolders);
     const todos_entries = convertNotesToTodos(notes);
     
@@ -11,7 +12,8 @@ async function pushNotes(userId) {
         JSON.stringify(todos_entries, null, 4)
     );
 
-    postNotes(todos_entries);
+    await postTodos(todos_entries);
+    return "push success";
 }
 
 async function pullReminders(userId, agentId) {
@@ -27,7 +29,14 @@ async function pullReminders(userId, agentId) {
     }})
     .forEach(pushReminder);
 
-    return true;
+    return "pull success";
+}
+
+async function pushPull(userId, agentId) {
+    return await Promise.all([
+        pushNotes(userId), 
+        pullReminders(userId, agentId)
+    ]);
 }
 
 globalThis.runMain = (argv) => {
@@ -38,7 +47,8 @@ globalThis.runMain = (argv) => {
 
     const command_map = {
         push: pushNotes,
-        pull: pullReminders
+        pull: pullReminders,
+        _default: pushPull,
     };
 
     const result_promise = command_map[res.command]();
