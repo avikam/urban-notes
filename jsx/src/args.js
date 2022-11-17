@@ -2,7 +2,8 @@ const yargsParser = require('yargs-parser')
 
 const CMDS = {
     push,
-    pull
+    pull,
+    paswd
 }
 
 export function parseArgv(argv) {
@@ -35,5 +36,9 @@ function push(res) {
 }
 
 function pull(res) {
+    return res
+}
+
+function paswd(res) {
     return res
 }

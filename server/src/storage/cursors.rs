@@ -3,7 +3,7 @@ use crate::todos::{TodoList, todo_list_from_notes};
 use sqlx::{Postgres, Row};
 use sqlx::{Transaction, Error};
 
-pub async fn get_next<'d>(tx: &mut Transaction<'d, Postgres>, user_id: &str, agent_id: &str, limit: i32) -> Result<TodoList, Error> {
+pub async fn get_next<'d>(tx: &mut Transaction<'d, Postgres>, user_id: &str, agent_id: &str, limit: u8) -> Result<(TodoList, bool), Error> {
    let res = read_next(tx, user_id, agent_id, limit).await;
 
    if let Err(err) = res {
@@ -18,17 +18,19 @@ pub async fn get_next<'d>(tx: &mut Transaction<'d, Postgres>, user_id: &str, age
       }
    }
 
-   Ok(todo_list)
+   let has_more = todo_list.len() == limit as usize;
+
+   Ok((todo_list, has_more))
 }
 
-async fn read_next<'d>(tx: &mut Transaction<'d, Postgres>, user_id: &str, agent_id: &str, limit: i32) -> Result<(i32, TodoList), Error> {
+async fn read_next<'d>(tx: &mut Transaction<'d, Postgres>, user_id: &str, agent_id: &str, limit: u8) -> Result<(i32, TodoList), Error> {
    let res: Result<Vec<(i32, String)>, Error> = sqlx::query(r#"
      SELECT tid, title FROM todo 
      WHERE user_id = $1 AND
      tid > COALESCE((select last_tid from sync_cursor where user_id = $1 and agent_id = $2 limit 1), 1)
      ORDER BY tid ASC limit $3"#
    )
-   .bind(user_id).bind(agent_id) .bind(limit)
+   .bind(user_id).bind(agent_id) .bind(limit as i32)
    .fetch_all(tx)
    .await
    .map(
@@ -87,18 +89,18 @@ mod test {
       {
          let mut test_tx = tx.borrow_mut().begin().await.expect("can't start test transaction");
 
-         let result = get_next(test_tx.borrow_mut(), "user1", "useragent1", 2).await.expect("error getting next");
+         let (result, _has_more) = get_next(test_tx.borrow_mut(), "user1", "useragent1", 2).await.expect("error getting next");
          assert_eq!(result.len(), 2);
          let r: Vec<&str> = result.into_iter().map(|t| t.name().as_ref()).collect();
          assert_eq!(format!("{:?}", r), r#"["item1", "item3"]"#);
          
-         let result = get_next(test_tx.borrow_mut(), "user1", "useragent1", 2).await.expect("error getting next");
+         let (result, _has_more) = get_next(test_tx.borrow_mut(), "user1", "useragent1", 2).await.expect("error getting next");
          assert_eq!(result.len(), 2);
 
-         let result = get_next(test_tx.borrow_mut(), "user1", "useragent1", 2).await.expect("error getting next");
+         let (result, _has_more) = get_next(test_tx.borrow_mut(), "user1", "useragent1", 2).await.expect("error getting next");
          assert_eq!(result.len(), 0);
 
-         let result = get_next(test_tx.borrow_mut(), "user1", "useragent1", 2).await.expect("error getting next");
+         let (result, _has_more) = get_next(test_tx.borrow_mut(), "user1", "useragent1", 2).await.expect("error getting next");
          assert_eq!(result.len(), 0);
       }
 

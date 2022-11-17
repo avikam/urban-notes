@@ -1,12 +1,14 @@
+import { sign } from "./sign"
 import { config } from "./config"
 
 ObjC.import('Cocoa')
+ObjC.import('stdlib')
 
 const app = Application.currentApplication()
+app.includeStandardAdditions = true;
+
 const session = $.NSURLSession;
 const shared_session = session.sharedSession;
-
-app.includeStandardAdditions = true;
 
 export function extractNotes(includeFolders) {
     // use the notes app
@@ -48,16 +50,18 @@ export function pushReminder(todo) {
     reminders_app.lists.byName("Reminders").reminders.push(new_reminder);
 }
 
-export function postTodos(note) {
-    return request("POST", "push?user_id=user1", note);
+export function postTodos(tokenAccountName, note) {
+    const password = getPassword(tokenAccountName);
+    return request(tokenAccountName, password, "POST", "push", `user_id=${tokenAccountName}`, note);
 }
 
-export async function getTodos(user_id, agent_id) {
-    return request("GET", `pull?user_id=${user_id}&agent_id=${agent_id}`);
+export async function getTodos(tokenAccountName, agent_id) {
+    const password = getPassword(tokenAccountName);
+    return request(tokenAccountName, password, "GET", "pull", `user_id=${tokenAccountName}&agent_id=${agent_id}`);
 }
 
-function request(method, path, json_body) {
-    const req =  $.NSMutableURLRequest.alloc.initWithURL($.NSURL.URLWithString(config.serverUrl + path));
+function request(tokenAccountName, password, method, path, query, json_body) {
+    const req =  $.NSMutableURLRequest.alloc.initWithURL($.NSURL.URLWithString(`${config.serverUrl}/${path}?${query}`));
     
     req.HTTPMethod = method;
     if (json_body) {
@@ -65,6 +69,8 @@ function request(method, path, json_body) {
         var body_string = $.NSString.alloc.initWithUTF8String(JSON.stringify(json_body));
         req.HTTPBody = body_string.dataUsingEncoding($.NSUTF8StringEncoding);
     }
+    const { signature, nonce, timestamp } = sign(tokenAccountName, password, query);
+    req.setValueForHTTPHeaderField($(`${nonce}.${timestamp}.${signature}`), $('Authorization'));
 
     const promise = new Promise((resolve, reject) => {
         const task = shared_session.dataTaskWithRequestCompletionHandler(req, (data, resp, err) => {
@@ -78,6 +84,16 @@ function request(method, path, json_body) {
     });
 
     return promise;
+}
+
+export function setPassword(username, password) {
+    $.system(
+        `/usr/bin/security add-generic-password -a '${username}' -s 'urbannotes.com' -w '${password}' -U`
+    );
+}
+
+function getPassword(username) {
+    return app.doShellScript(`/usr/bin/security find-generic-password -a '${username}' -s 'urbannotes.com' -w`);
 }
 
 // The code above schedules data task (maybe tasks in the future) that

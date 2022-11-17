@@ -31,6 +31,7 @@
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
     "jsdom": "^20.0.1",
+    "sha.js": "^2.4.11",
     "yargs-parser": "^21.1.1"
   },
   "engines": {

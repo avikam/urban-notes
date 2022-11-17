@@ -12,12 +12,12 @@ use std::time::Duration;
 
 use rocket::serde::json::Json;
 use rocket::State;
-use rocket::request::Request;
+use rocket::request::{Request, Outcome, FromRequest};
 use rocket::response::{self, Response, Responder};
 use rocket::http::ContentType;
 use rocket::http::Status;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::borrow::{Cow, BorrowMut};
 use tokio::sync::mpsc;
 use tokio::task::spawn_blocking;
@@ -26,6 +26,11 @@ use tokio::signal;
 use sqlx::postgres::{Postgres, PgPoolOptions};
 use sqlx::Pool;
 
+use chrono::prelude::*;
+use chrono::naive::NaiveDateTime;
+use sha2::{Sha256, Digest};
+use base64;
+
 #[derive(Deserialize)]
 struct Note<'r> {
     folder: &'r str,
@@ -33,6 +38,12 @@ struct Note<'r> {
 
     #[serde(borrow)]
     todo: Cow<'r, str>,
+}
+
+#[derive(Serialize)]
+struct PullResponse {
+    todos: Vec<String>,
+    has_more: bool
 }
 
 struct TodoQueue {
@@ -54,8 +65,109 @@ impl<'a> Responder<'a, 'a> for PostTodosErr {
     }
 }
 
+struct Token {
+    user: String,
+    token: String
+}
+
+#[derive(Debug)]
+enum ApiTokenError {
+    Missing,
+    Invalid,
+}
+
+impl Token {
+    fn validate(&self, query: &str) -> bool {
+        let split: Vec<&str> = self.token.splitn(3, ".").collect();
+        if split.len() != 3 {
+            print!("wrong elements amount");
+            return false
+        }
+
+        let (nonce, timestamp_s, signature) = (split[0], split[1], split[2]);
+        if nonce.len() < 10 {
+            return false;
+        }
+
+        let timestamp = timestamp_s.parse::<i64>().unwrap_or(0);
+        if timestamp == 0 {
+            return false;
+        }
+
+        let native_datetime = NaiveDateTime::from_timestamp_opt(timestamp, 0).unwrap_or_default();
+        if native_datetime == NaiveDateTime::default() {
+            return false;
+        }
+
+        let elapsed = Utc::now() - DateTime::from_utc(native_datetime, Utc);
+        if elapsed < chrono::Duration::seconds(-5) || elapsed > chrono::Duration::minutes(1) {
+            return false;
+        }
+
+        let mut hasher = Sha256::new(); // ${user}_${password}_${query}_${nonce}_${timestamp}
+        hasher.update(&self.user);
+        hasher.update("_");
+
+        hasher.update("S_:C-u3\\i-Ts)[&m?Z[F" /*password_for_user(self.user)*/);
+        hasher.update("_");
+
+        hasher.update(query);
+        hasher.update("_");
+
+        hasher.update(nonce);
+        hasher.update("_");
+
+        hasher.update(timestamp_s);
+
+        let result = hasher.finalize();
+        let mine = base64::encode(result);
+        println!("Got: {}, Sign: {}, Calc: {}",
+            self.token,
+            signature,
+            mine
+        );
+
+        if mine != signature {
+            return false;
+        }
+        
+        true
+    }
+}
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for Token {
+    type Error = ApiTokenError;
+
+    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        let token = req.headers().get_one("Authorization");
+        // need to parse user for query args
+        let user = "avikam@gmail.com".to_string();
+        
+        match token {
+            Some(token) => {
+                let s = Self{user: user, token: token.to_string()};
+                if s.validate("user_id=avikam@gmail.com&agent_id=agentId") {
+                    Outcome::Success(s)
+                } else {
+                    Outcome::Failure((Status::Unauthorized, ApiTokenError::Invalid))
+                }
+                
+            }
+            None => Outcome::Failure((Status::Unauthorized, ApiTokenError::Missing)),
+        }
+    }
+}
+
+
 #[post("/push?<user_id>", data = "<notes>")]
-async fn push(pool: &State<Pool<Postgres>>, queue: &State<TodoQueue>, notes: Json<Vec<Note<'_>>>, user_id: Option<String>) -> Result<Json<String>, PostTodosErr> {
+async fn push(
+    token: Token,
+    pool: &State<Pool<Postgres>>, 
+    queue: &State<TodoQueue>, 
+    notes: Json<Vec<Note<'_>>>, 
+    user_id: Option<String>
+) -> Result<Json<String>, PostTodosErr> {
     if user_id.is_none() {
         return Err(PostTodosErr{ http_status: Status::BadRequest, err: "Must provide user_id".to_string() })
     }
@@ -86,7 +198,6 @@ async fn push(pool: &State<Pool<Postgres>>, queue: &State<TodoQueue>, notes: Jso
                                         .map_err(|_err| 
                                             PostTodosErr{ http_status: Status::InternalServerError, err: "DB Error".to_string() }
                                         )?;
-    dbg!(store_result);
     
     tx.commit().await.map_err(|_err| PostTodosErr{ http_status: Status::InternalServerError, err: "DB Error".to_string() })?;
 
@@ -108,14 +219,20 @@ async fn push(pool: &State<Pool<Postgres>>, queue: &State<TodoQueue>, notes: Jso
 }
 
 #[get("/pull?<user_id>&<agent_id>&<limit>")]
-async fn pull(pool: &State<Pool<Postgres>>, user_id: Option<String>, agent_id: Option<String>, limit: Option<i32>) -> Result<Json<Vec<String>>, PostTodosErr> {
+async fn pull(
+    token: Token,
+    pool: &State<Pool<Postgres>>, 
+    user_id: Option<String>, 
+    agent_id: Option<String>, 
+    limit: Option<u8>
+) -> Result<Json<PullResponse>, PostTodosErr> {
     if user_id.is_none() || agent_id.is_none() {
         return Err(PostTodosErr{ http_status: Status::BadRequest, err: "Must provide user_id and agent_id".to_string() })
     }
 
     let user_id = user_id.unwrap();
     let agent_id = agent_id.unwrap();
-    let limit = cmp::min(limit.unwrap_or(5), 10);
+    let limit = cmp::min(limit.unwrap_or(5), 100);
 
     let mut tx = pool
         .begin()
@@ -124,12 +241,17 @@ async fn pull(pool: &State<Pool<Postgres>>, user_id: Option<String>, agent_id: O
             PostTodosErr{ http_status: Status::InternalServerError, err: "DB Error".to_string() }
         )?;
 
-    let res = storage::cursors::get_next(tx.borrow_mut(), user_id.as_str(), agent_id.as_str(), limit).await.map_err(|_err| PostTodosErr{ http_status: Status::InternalServerError, err: "DB Error".to_string() })?;
+    let (res, has_more) = storage::cursors::get_next(
+        tx.borrow_mut(), user_id.as_str(), agent_id.as_str(), limit
+    ).await.map_err(|_err| PostTodosErr{ http_status: Status::InternalServerError, err: "DB Error".to_string() })?;
 
     tx.commit().await.map_err(|_err| PostTodosErr{ http_status: Status::InternalServerError, err: "DB Error".to_string() })?;
 
     Ok(Json(
-        res.into_iter().map(|t| t.name().to_string()).collect()
+        PullResponse {
+            has_more:  has_more,
+            todos: res.into_iter().map(|t| t.name().to_string()).collect()
+        }
     ))
 }
 
