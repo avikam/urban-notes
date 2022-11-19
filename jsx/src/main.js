@@ -3,7 +3,7 @@ import { extractNotes, postTodos, getTodos, waitForDataTasks, pushReminder, setP
 import { convertNotesToTodos } from "./process";
 import { parseArgv } from "./args" 
 
-async function pushNotes(userId) {
+async function pushNotes() {
     console.log("push notes");
     const notes = extractNotes(config.includeFolders);
     const todos_entries = convertNotesToTodos(notes);
@@ -16,12 +16,12 @@ async function pushNotes(userId) {
     return "push success";
 }
 
-async function pullReminders(userId, agentId) {
+async function pullReminders(agentId = "agentId") {
     console.log("pull reminders");
-    const todos = await getTodos(config.userId, "agentId");
+    const todos = await getTodos(config.userId, agentId);
     console.log("get todos response", todos);
 
-    todos
+    todos.todos
     .map(todo => { return {
         todo,
         folder: "Weekly goals",
@@ -32,14 +32,14 @@ async function pullReminders(userId, agentId) {
     return "pull success";
 }
 
-async function pushPull(userId, agentId) {
+async function pushPull(agentId) {
     return await Promise.all([
-        pushNotes(userId), 
-        pullReminders(userId, agentId)
+        pushNotes(), 
+        pullReminders(agentId)
     ]);
 }
 
-async function setPasswordCmd(userId) {
+async function setPasswordCmd() {
     setPassword(config.userId, "123456");
 }
 

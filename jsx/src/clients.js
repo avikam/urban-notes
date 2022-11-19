@@ -11,6 +11,7 @@ const session = $.NSURLSession;
 const shared_session = session.sharedSession;
 
 export function extractNotes(includeFolders) {
+    const now = new Date();
     // use the notes app
     const notes_app = Application("notes");
     var collected = [];
@@ -27,6 +28,11 @@ export function extractNotes(includeFolders) {
         const notes = folder.notes;
         for (var nx = 0; nx < notes.length; nx++) {
             const note = notes[nx];
+            const modified = note.modificationDate();
+            const since_days = Math.ceil((now - modified) / (1000 * 60 * 60 * 24));
+            if (since_days > config.notesSince) {
+                continue;
+            }
 
             collected.push(
                 {
@@ -52,12 +58,12 @@ export function pushReminder(todo) {
 
 export function postTodos(tokenAccountName, note) {
     const password = getPassword(tokenAccountName);
-    return request(tokenAccountName, password, "POST", "push", `user_id=${tokenAccountName}`, note);
+    return request(tokenAccountName, password, "POST", "push", "", note);
 }
 
 export async function getTodos(tokenAccountName, agent_id) {
     const password = getPassword(tokenAccountName);
-    return request(tokenAccountName, password, "GET", "pull", `user_id=${tokenAccountName}&agent_id=${agent_id}`);
+    return request(tokenAccountName, password, "GET", "pull", `agent_id=${agent_id}`);
 }
 
 function request(tokenAccountName, password, method, path, query, json_body) {
@@ -69,8 +75,8 @@ function request(tokenAccountName, password, method, path, query, json_body) {
         var body_string = $.NSString.alloc.initWithUTF8String(JSON.stringify(json_body));
         req.HTTPBody = body_string.dataUsingEncoding($.NSUTF8StringEncoding);
     }
-    const { signature, nonce, timestamp } = sign(tokenAccountName, password, query);
-    req.setValueForHTTPHeaderField($(`${nonce}.${timestamp}.${signature}`), $('Authorization'));
+    const { signature, nonce, account, timestamp } = sign(tokenAccountName, password, query);
+    req.setValueForHTTPHeaderField($(`${nonce}.${timestamp}.${account}.${signature}`), $('Authorization'));
 
     const promise = new Promise((resolve, reject) => {
         const task = shared_session.dataTaskWithRequestCompletionHandler(req, (data, resp, err) => {
