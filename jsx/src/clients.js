@@ -10,6 +10,20 @@ app.includeStandardAdditions = true;
 const session = $.NSURLSession;
 const shared_session = session.sharedSession;
 
+export function getArgv() {
+    var args = $.NSProcessInfo.processInfo.arguments
+    
+    // Build the normal argv/argc
+    var argv = []
+    var argc = args.count // -[NSArray count]
+
+    for (var i = 0; i < argc; i++) {
+        argv.push( ObjC.unwrap( args.objectAtIndex(i) ) ) // -[NSArray objectAtIndex:]
+    }
+
+    return argv.splice(2);
+}
+
 export function extractNotes(includeFolders) {
     const now = new Date();
     // use the notes app

@@ -1,5 +1,5 @@
 import { config } from "./config"
-import { extractNotes, postTodos, getTodos, waitForDataTasks, pushReminder, setPassword } from "./clients";
+import { getArgv, extractNotes, postTodos, getTodos, waitForDataTasks, pushReminder, setPassword } from "./clients";
 import { convertNotesToTodos } from "./process";
 import { parseArgv } from "./args" 
 
@@ -43,21 +43,20 @@ async function setPasswordCmd() {
     setPassword(config.userId, "123456");
 }
 
-globalThis.runMain = (argv) => {
-    const res = parseArgv(argv);
-    if (res === undefined) {
-        throw "Usage: [push | pull]";
-    }
-
-    const command_map = {
-        push: pushNotes,
-        pull: pullReminders,
-        paswd: setPasswordCmd,
-        _default: pushPull,
-    };
-
-    const result_promise = command_map[res.command]();
-    result_promise.then(console.log);
-
-    waitForDataTasks();
+const argv = getArgv();
+const res = parseArgv(argv);
+if (res === undefined) {
+    throw "Usage: [push | pull]";
 }
+
+const command_map = {
+    push: pushNotes,
+    pull: pullReminders,
+    paswd: setPasswordCmd,
+    _default: pushPull,
+};
+
+const result_promise = command_map[res.command]();
+result_promise.then(console.log);
+
+waitForDataTasks();

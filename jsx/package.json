@@ -6,7 +6,8 @@
   "scripts": {
     "build": "gulp",
     "run": "osascript -l JavaScript dist/urban_notes.jxa pull",
-    "clean-run": "rm -fr dist && npm run build && npm run run",
+    "run-packed": "osascript dist/urban_notes.app",
+    "clean-run": "rm -fr dist && npm run build && npm run run-packed",
     "test": "jest"
   },
   "author": "",

@@ -29,8 +29,6 @@ function build() {
         .pipe(babel({
             presets: ['@babel/preset-env']
         }))
-        .pipe(gulp.src('./src/_bootstrap.js'))
-        .pipe(concat(COMBINED))
         .pipe(sourcemaps.write("."))
         .pipe(gulp.dest(DIST_FOLDER))
     ;
@@ -51,7 +49,7 @@ function build() {
     // pipe the Browserify stream into the stream we created earlier
     // this starts our gulp pipeline.
 
-    b.bundle().pipe(bundledStream).pipe(oscompile([
+    b.bundle().pipe(bundledStream).pipe(osacompile([
         '-l', 'JavaScript',
         '-o', join(DIST_FOLDER, basename(js_file, extname(js_file)) + '.app'),
         '-x',
@@ -60,24 +58,24 @@ function build() {
     return bundledStream;
 }
 
-function oscompile (args) {
+function osacompile (args) {
     let stderr = ''
-    const osacompile = spawn('osacompile', args);
+    const proc = spawn('osacompile', args);
   
-    osacompile.stderr.on('data', data => { stderr += data })
+    proc.stderr.on('data', data => { stderr += data })
   
     const stream = new Writable({
-      write: osacompile.stdin.write.bind(osacompile.stdin),
+      write: proc.stdin.write.bind(proc.stdin),
       final: function (callback) {
-        osacompile.stdin.end()
-        osacompile.on('close', function (code) {
+        proc.stdin.end()
+        proc.on('close', function (code) {
           if (!code) return callback()
           callback(new Error(stderr))
         })
       }
     })
   
-    osacompile.on('error', stream.emit.bind(stream, 'error'))
+    proc.on('error', stream.emit.bind(stream, 'error'))
   
     return stream
 }
