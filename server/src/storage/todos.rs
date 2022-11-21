@@ -14,25 +14,31 @@ fn prefix(s: &str, k: usize) -> &str {
 pub async fn store_todos<'d>(tx: &mut Transaction<'d, Postgres>, user_id: &str, todo_list: &TodoList) -> Result<NaiveDateTime, Error> {
     // pivot
     let mut titles = Vec::new();
+    let mut lists = Vec::new();
     let mut idemps = Vec::new();
 
     let sorted = todo_list.sorted();
     for item in sorted.into_iter() {
         titles.push(item.name());
-        idemps.push(prefix(item.name(), 32));
+
+        lists.push(item.list_name());
+
+        idemps.push(
+            format!("{:x}", item.idmep())
+        );
     }
 
     sqlx::query(
         r#"WITH 
         request AS (
-            SELECT title, idemp_key
-            FROM UNNEST($1,$2) AS a(title, idemp_key)
+            SELECT title, list, idemp_key
+            FROM UNNEST($1,$2,$3) AS a(title, list, idemp_key)
         ) 
-        INSERT INTO todo (user_id, title, idemp_key)
-        SELECT $3 user_id, title, idemp_key FROM request
+        INSERT INTO todo (user_id, title, list, idemp_key)
+        SELECT $4 user_id, title, list, idemp_key FROM request
         ON CONFLICT DO NOTHING
         "#,
-    ).bind(&titles).bind(&idemps).bind(user_id)
+    ).bind(&titles).bind(&lists).bind(&idemps).bind(user_id)
     .execute(&mut *tx)
     .await
     .map_err(|e| dbg!(e) )?;
@@ -90,7 +96,7 @@ mod test {
         assert!(c == 0);
 
 
-        store_todos(&mut tx, "user", &todo_list).await;
+        store_todos(&mut tx, "user", &todo_list).await.unwrap();
         let c = count_todos(&mut tx).await;
         assert!(c == 2);
 
@@ -98,7 +104,7 @@ mod test {
         let todos = vec!["task 1", "task 2"];
         let todo_list = todo_list_from_notes(&todos);
         
-        store_todos(&mut tx, "user", &todo_list).await;
+        store_todos(&mut tx, "user", &todo_list).await.unwrap();
         let c = count_todos(&mut tx).await;
         assert!(c == 2);
 

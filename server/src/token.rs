@@ -7,7 +7,7 @@ use chrono::naive::NaiveDateTime;
 use sha2::{Sha256, Digest};
 use base64;
 
-use std::collections::hash_map::DefaultHasher;
+use fasthash::Murmur3HasherExt;
 use std::hash::{Hash, Hasher};
 
 pub struct Token {
@@ -23,12 +23,12 @@ pub enum ApiTokenError {
 
 impl Token {
     pub fn user(&self) -> String {
-        format!("{}", calculate_hash(&self.user))
+        format!("{:x}", calculate_hash(&self.user))
     }
 }
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
-    let mut s = DefaultHasher::new();
+    let mut s = Murmur3HasherExt::default();
     t.hash(&mut s);
     s.finish()
 }

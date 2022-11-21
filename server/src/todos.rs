@@ -1,14 +1,19 @@
 use std::{default::Default, borrow::Borrow};
+use std::hash::{Hash, Hasher};
+
+use fasthash::Murmur3HasherExt;
 
 #[derive(Eq, Hash, PartialEq, Clone)]
 pub struct TodoItem {
-    name: String
+    name: String,
+    list_name: String
 }
 
 impl Default for TodoItem {
     fn default() -> Self {
         TodoItem {
             name: "".to_string(),
+            list_name: "Reminders".to_string()
         }
     }
 }
@@ -16,6 +21,26 @@ impl Default for TodoItem {
 impl TodoItem {
     pub fn name(&self) -> &str {
         self.name.as_ref()
+    }
+
+    pub fn list_name(&self) -> &str {
+        self.list_name.as_ref()
+    }
+
+    pub fn set_name<S: Borrow<str>>(&mut self, name: S) -> &mut Self {
+        self.name = name.borrow().to_owned();
+        self
+    }
+
+    pub fn set_list_name<S: Borrow<str>>(&mut self, list_name: S) -> &mut Self {
+        self.list_name = list_name.borrow().to_owned();
+        self
+    }
+
+    pub fn idmep(&self) -> u64 {
+        let mut s: Murmur3HasherExt = Default::default();
+        self.hash(&mut s);
+        s.finish()
     }
 }
 
@@ -26,7 +51,7 @@ impl<'a> AsRef<str> for TodoItem {
 }
 
 pub struct TodoList {
-    todo_list: Vec<TodoItem>,
+    pub todo_list: Vec<TodoItem>,
 }
 
 impl Default for TodoList {
@@ -41,7 +66,8 @@ pub fn todo_list_from_notes<'a, S: Borrow<str>>(text: &[S]) -> TodoList {
     let todo_list = text.iter().map(|t| {
         let tmp: &str = t.borrow();
         TodoItem {
-            name: tmp.to_owned()
+            name: tmp.to_owned(),
+            list_name: "Reminders".to_string()
         }}).collect();
     TodoList { todo_list }
 }

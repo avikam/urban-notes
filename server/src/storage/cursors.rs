@@ -76,12 +76,12 @@ mod test {
       let mut tx = p.begin().await.expect("can't initiate tx");
 
       {
-         sqlx::query(r#"INSERT INTO todo(user_id, title, idemp_key) VALUES
-            ('user1', 'item1', 'idemp1'),
-            ('user2', 'item2', 'idemp2'),
-            ('user1', 'item3', 'idemp3'),
-            ('user1', 'item4', 'idemp4'),
-            ('user1', 'item5', 'idemp5')
+         sqlx::query(r#"INSERT INTO todo(user_id, title, list, idemp_key) VALUES
+            ('user1', 'item1', 'list1', 'idemp1'),
+            ('user2', 'item2', 'list1', 'idemp2'),
+            ('user1', 'item3', 'list1', 'idemp3'),
+            ('user1', 'item4', 'list1', 'idemp4'),
+            ('user1', 'item5', 'list1', 'idemp5')
             "#
          ).execute(tx.borrow_mut()).await.expect("can't insert test data");
       }
@@ -104,7 +104,7 @@ mod test {
          assert_eq!(result.len(), 0);
       }
 
-      tx.rollback();
+      tx.rollback().await.unwrap();
    }
 
    #[tokio::test]
@@ -113,12 +113,12 @@ mod test {
       let mut tx = p.begin().await.expect("can't initiate tx");
 
       {
-         sqlx::query(r#"INSERT INTO todo(user_id, title, idemp_key) VALUES
-            ('user1', 'item1', 'idemp1'),
-            ('user2', 'item2', 'idemp2'),
-            ('user1', 'item3', 'idemp3'),
-            ('user1', 'item4', 'idemp4'),
-            ('user1', 'item5', 'idemp5')
+         sqlx::query(r#"INSERT INTO todo(user_id, title, list, idemp_key) VALUES
+            ('user1', 'item1', 'list1', 'idemp1'),
+            ('user2', 'item2', 'list1', 'idemp2'),
+            ('user1', 'item3', 'list1', 'idemp3'),
+            ('user1', 'item4', 'list1', 'idemp4'),
+            ('user1', 'item5', 'list1', 'idemp5')
             "#
          ).execute(tx.borrow_mut()).await.expect("can't insert test data");
       }
@@ -139,7 +139,7 @@ mod test {
       }
 
 
-      tx.rollback();
+      tx.rollback().await.unwrap();
    }
 
    async fn get_cursor<'d>(tx: &mut Transaction<'d, Postgres>, user_id: &str, agent_id: &str) -> Option<i32> {
@@ -166,7 +166,7 @@ mod test {
          assert_eq!(get_cursor(tx.borrow_mut(), "user1", "agent1").await, Some(100));
       }
 
-      tx.rollback();
+      tx.rollback().await.unwrap();
    }
 
 }

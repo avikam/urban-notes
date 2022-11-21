@@ -64,10 +64,12 @@ export function extractNotes(includeFolders) {
 export function pushReminder(todo) {
     const reminders_app = Application("Reminders");
     var new_reminder = reminders_app.Reminder({
-        name: todo.todo, 
-        body: `From: ${todo.folder} / ${todo.name}`
+        name: todo.name, 
+        body: `From: ${todo.list} / ${todo.some_date}`
     });
-    reminders_app.lists.byName("Reminders").reminders.push(new_reminder);
+    const lists = reminders_app.lists;
+    const list = lists.byName(config.remindersList);
+    list.reminders.push(new_reminder);
 }
 
 export function postTodos(tokenAccountName, note) {

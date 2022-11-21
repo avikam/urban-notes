@@ -18,6 +18,7 @@ uuid = { version = "1.1", features = ["v4"] }
 base64 = { version = "0.13" }
 async-trait = "0.1.57"
 urlencoding = "2.1.2"
+fasthash = "0.4.0"
 
 # tokio + rustls
 sqlx = { version = "0.6.2", features = [ "runtime-tokio-rustls", "postgres", "sqlite", "any", "chrono" ] }

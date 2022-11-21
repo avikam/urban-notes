@@ -28,10 +28,12 @@ use sqlx::postgres::{Postgres, PgPoolOptions};
 use sqlx::Pool;
 
 use token::Token;
+use todos::{TodoList, TodoItem};
 
 #[derive(Deserialize)]
 struct Note<'r> {
     folder: &'r str,
+
     name: &'r str,
 
     #[serde(borrow)]
@@ -40,8 +42,14 @@ struct Note<'r> {
 
 #[derive(Serialize)]
 struct PullResponse {
-    todos: Vec<String>,
+    todos: Vec<Reminder>,
     has_more: bool
+}
+
+#[derive(Serialize)]
+struct Reminder {
+    name: String,
+    list: String
 }
 
 struct TodoQueue {
@@ -70,14 +78,17 @@ async fn push(
     queue: &State<TodoQueue>, 
     notes: Json<Vec<Note<'_>>>, 
 ) -> Result<Json<String>, PostTodosErr> {
-    let x: Vec<&str> = notes.iter().map_while(|n| 
-        match n.todo.as_ref().is_empty() {
-            true => None,
-            false => Some(n.todo.as_ref())
-        }
-    ).collect();
 
-    if x.len() != notes.len() {
+    let todo_list = TodoList{
+        todo_list: notes.iter().map_while(|n| 
+            match n.todo.as_ref().is_empty() {
+                true => None,
+                false => Some(TodoItem::default().set_name(n.todo.as_ref()).set_list_name(n.folder).to_owned())
+            }
+        ).collect()
+    };
+
+    if todo_list.len() != notes.len() {
         return Err(PostTodosErr{ http_status: Status::BadRequest, err: "Found empty todo".to_string() })
     }
     
@@ -88,9 +99,7 @@ async fn push(
                                             PostTodosErr{ http_status: Status::InternalServerError, err: "DB Error".to_string() }
                                         )?;
 
-    let todo_list = todos::todo_list_from_notes(&x);
-
-    let store_result = storage::todos::store_todos(&mut tx, token.user().as_str(), &todo_list)
+    let _store_result = storage::todos::store_todos(&mut tx, token.user().as_str(), &todo_list)
                                         .await
                                         .map_err(|_err| 
                                             PostTodosErr{ http_status: Status::InternalServerError, err: "DB Error".to_string() }
@@ -141,7 +150,7 @@ async fn pull(
     Ok(Json(
         PullResponse {
             has_more:  has_more,
-            todos: res.into_iter().map(|t| t.name().to_string()).collect()
+            todos: res.into_iter().map(|t| Reminder { name: t.name().to_string(), list: t.list_name().to_string() }).collect()
         }
     ))
 }

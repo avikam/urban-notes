@@ -19,13 +19,13 @@ async function pushNotes() {
 async function pullReminders(agentId = "agentId") {
     console.log("pull reminders");
     const todos = await getTodos(config.userId, agentId);
-    console.log("get todos response", todos);
+    console.log("get todos response", JSON.stringify(todos));
 
     todos.todos
     .map(todo => { return {
-        todo,
-        folder: "Weekly goals",
-        name: "10/24"
+        name: todo.name,
+        list: todo.list,
+        some_date: "10/24"
     }})
     .forEach(pushReminder);
 
