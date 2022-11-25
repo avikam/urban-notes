@@ -1,0 +1,4 @@
+[default]
+database_hostname = "localhost"
+database_username = "postgres"
+database_password = "password"

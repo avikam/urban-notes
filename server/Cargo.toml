@@ -7,7 +7,7 @@ edition = "2021"
 chrono = "0.4.23"
 sha2 = "0.10.6"
 regex = "1"
-lazy_static = "1"
+lazy_static = "1.4.0"
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.11", features = ["json"]}
 rocket = { version = "0.5.0-rc.2", features = ["json"] }
@@ -18,7 +18,10 @@ uuid = { version = "1.1", features = ["v4"] }
 base64 = { version = "0.13" }
 async-trait = "0.1.57"
 urlencoding = "2.1.2"
-fasthash = "0.4.0"
+# The master version separated the algorithms to features, which is important to cross compile, as some of the 
+# implementations are using specific instruction set (i.e v128_clmul_cross smhasher/ and various non cross platform gcc flags)
+fasthash-sys = { git = "https://github.com/avikam/rust-fasthash", default-features = false }
+fasthash =  { git = "https://github.com/avikam/rust-fasthash", features = ["murmur"], default-features = false }
 
 # tokio + rustls
 sqlx = { version = "0.6.2", features = [ "runtime-tokio-rustls", "postgres", "sqlite", "any", "chrono" ] }

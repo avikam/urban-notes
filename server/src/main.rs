@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
+mod config;
 mod token;
 mod anydo;
 mod sync_todos;
@@ -11,6 +12,7 @@ use std::cmp;
 use std::io::Cursor;
 use std::time::Duration;
 
+use rocket::fairing::AdHoc;
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket::request::Request;
@@ -26,6 +28,8 @@ use tokio::signal;
 
 use sqlx::postgres::{Postgres, PgPoolOptions};
 use sqlx::Pool;
+
+use config::Config;
 
 use token::Token;
 use todos::{TodoList, TodoItem};
@@ -157,13 +161,6 @@ async fn pull(
 
 #[rocket::main]
 async fn main() {
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .acquire_timeout(Duration::from_secs(3))
-        .connect("postgres://postgres:password@localhost/urban_notes").await
-        .expect("Can't connect to the database");
-    
-
     let (sender, mut receiver) = mpsc::channel::<todos::TodoList>(10);
 
     let token = std::env::var("ANYDO_TOKEN").expect("no anydo token");
@@ -205,7 +202,17 @@ async fn main() {
 
     let result = rocket::build()
     .manage(TodoQueue{sender: sender})
-    .manage(pool)
+    .attach(AdHoc::on_ignite("Database Config", |rocket| async {
+        let config: Config = rocket.figment().extract().expect("Failed Reading Config!");
+
+        let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .acquire_timeout(Duration::from_secs(3))
+        .connect(config.database_connection_string().as_str()).await
+        .expect("Can't connect to the database");
+
+        rocket.manage(pool)
+    }))
     .mount("/", routes![push, pull])
     .launch();
 
